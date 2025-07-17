@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -21,6 +22,7 @@ const JournalingPage = () => {
     const [entry, setEntry] = useState('');
     const [entries, setEntries] = useState<JournalEntry[]>([]);
 
+
     const handleSave = () => {
         if (!entry.trim()) {
             Alert.alert('Please write something before saving.');
@@ -33,10 +35,30 @@ const JournalingPage = () => {
             date: new Date().toLocaleString(),
         };
 
-        setEntries([newEntry, ...entries]);
+        saveJournalEntry(newEntry);
         setEntry('');
         Alert.alert('Journal Saved ✅');
     };
+
+    const saveJournalEntry = async (entry: JournalEntry) => {
+        try {
+            const existing = await AsyncStorage.getItem('journalEntries');
+            const parsed = existing ? JSON.parse(existing) : [];
+            parsed.push(entry);
+            await AsyncStorage.setItem('journalEntries', JSON.stringify(parsed));
+            setEntries((prev) => [...prev, entry])
+        } catch (e) {
+            console.error('Failed to save journal entry:', e);
+        }
+    };
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const data = await AsyncStorage.getItem('journalEntries');
+            if (data) setEntries(JSON.parse(data));
+        };
+        fetchHistory();
+    }, []);
 
     return (
         <LinearGradient colors={['#fff', '#f9f1ff']} style={styles.container}>
@@ -64,16 +86,12 @@ const JournalingPage = () => {
                 {entries.length === 0 ? (
                     <Text style={styles.noEntries}>No journal entries yet.</Text>
                 ) : (
-                    <FlatList
-                        data={entries}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <View style={styles.pastEntry}>
-                                <Text style={styles.entryDate}>{item.date}</Text>
-                                <Text style={styles.entryContent}>{item.content}</Text>
-                            </View>
-                        )}
-                    />
+                    entries.map((entry, index) => (
+                        <View key={index} style={styles.pastEntry}>
+                            <Text style={styles.entryDate}>{entry.date}</Text>
+                            <Text style={styles.entryContent}>{entry.content}</Text>
+                        </View>
+                    ))
                 )}
             </ScrollView>
         </LinearGradient>
